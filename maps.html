@@ -33,11 +33,11 @@ function initialize() {
 
  	var marker;
         for(var i=0; i < data.length; i++) {
-            var myLatLng = new google.maps.LatLng((data[i].lat), data[i].lng));
+            var myLatLng = new google.maps.LatLng(data[i].lat, data[i].lng);
             var marker = new google.maps.Marker({ position: myLatLng, map: map });
         }
 
-        $('#map-canvas').show();
+        $('#map').show();
     }
 //   var ctaLayer = new google.maps.KmlLayer({
 //     url: 'map.kml'
