@@ -17,12 +17,35 @@
         margin-left: auto;
         margin-right: auto;
       }
+
+      #time {
+        font-size: 30px;
+        font-weight: 200;
+        color: #000080;
+        margin-top: 20px;
+      }
+
+      img {
+        width: 150px;
+        height: 90px;
+      }
+      .left-column, #map-canvas {
+        display: inline-block;
+        vertical-align: top;
+      }
+
+      .left-column {
+        margin: 20px 20px 0 30px;
+        width: 200px;
+      }
+
+      h3 {
+        font-weight: 200;
+      }
+
     </style>
     
-    <script src="https://code.jquery.com/jquery-1.11.1.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.6.0/underscore-min.js"></script>
-    <script src="http://cdnjs.cloudflare.com/ajax/libs/d3/3.4.8/d3.min.js"></script>
-    <script src="http://cdnjs.cloudflare.com/ajax/libs/moment.js/2.6.0/moment.min.js"></script>
+
 
     <!-- Latest compiled and minified CSS -->
     <link rel="stylesheet" href="http://netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
@@ -30,17 +53,33 @@
     <!-- Optional theme -->
     <link rel="stylesheet" href="http://netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap-theme.min.css">
 
-    <!-- Latest compiled and minified JavaScript -->
-    <script src="http://netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>
-
     <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&sensor=false&libraries=visualization"></script>
+  </head>
+  <body>
+    <div class="left-column">
+      <img src="SecureLALogo.png">
+      <div id="time">Midnight</div>
+      <h4>An average day of crime in Los Angeles</h4>
+    </div>
     
+    <div id="map-canvas"></div>
+
+
+    <script src="https://code.jquery.com/jquery-1.11.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.6.0/underscore-min.js"></script>
+    <script src="http://cdnjs.cloudflare.com/ajax/libs/d3/3.4.8/d3.min.js"></script>
+    <script src="http://cdnjs.cloudflare.com/ajax/libs/moment.js/2.6.0/moment.min.js"></script>
+        <!-- Latest compiled and minified JavaScript -->
+    <script src="http://netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>
     <script>
+
+    var data;
     function initialize() {
       d3.csv('https://s3.amazonaws.com/hackforla/crime_maps_padded.csv', function(d) {
         var dateObj = moment(d.date_occurred + ' ' + d.time_occurred, 'MM/DD/YY HHmm');
         return {
           date: dateObj,
+          time_occurred: d.time_occurred,
           area: d.area,
           crime: d.crime,
           crime_type: d.crime_type,
@@ -56,27 +95,85 @@
 
         var map = new google.maps.Map(document.getElementById('map-canvas'), mapOptions);
 
-        var data = [];
-        result.forEach(function(d) {
+        var startIndex = 0,
+            endIndex = 15;
+          console.log(result[2]);
+          var currentSlice = _.filter(result, function(d) {
+            return (d.time_occurred > 0) && (d.time_occurred <= endIndex);
+          })
+          console.log(currentSlice);
+          var data = [];
+          currentSlice.forEach(function(d) {
             var myLatLng = new google.maps.LatLng(d.lat, d.lon);
             data.push(myLatLng);            
-        });
+          });
 
-        var pointArray = new google.maps.MVCArray(data);
-        var heatmap = new google.maps.visualization.HeatmapLayer({
-          data: pointArray,
-          // gradient: ["rgba(0, 255, 255, 0)","#feb24c","#fd8d3c","#fc4e2a","#e31a1c"],
-          radius: 15
-        });
-        heatmap.setMap(map)
-      });      
+          var pointArray = new google.maps.MVCArray(data);
+          var heatmap = new google.maps.visualization.HeatmapLayer({
+            data: pointArray,
+            // gradient: ["rgba(0, 255, 255, 0)","#feb24c","#fd8d3c","#fc4e2a","#e31a1c"],
+            radius: 15
+          });
+          heatmap.setMap(map);
+
+        function animLoop(currentHeatMap) {
+          
+          startIndex += 15;
+          endIndex += 15;
+
+          var startHour = Math.floor(startIndex / 60),
+              startMin = startIndex % 60,
+              startTimeString = startHour.toString() + ":" + startMin.toString(),
+              currentDateObj = moment(startTimeString, "H:mm");
+
+          console.log(startTimeString);
+          console.log("startIndex: " + startIndex);
+          console.log("endIndex: " + endIndex);
+
+          $("#time").text(currentDateObj.format("h:mm a"));
+
+          var currentSlice = _.filter(result, function(d) {
+            return (d.time_occurred > startIndex) && (d.time_occurred <= endIndex);
+          })
+
+          currentSlice = _.sortBy(currentSlice, function(d) {
+            return d.time_occurred;
+          });
+
+      
+          var data = [];
+          currentSlice.forEach(function(d) {
+            var myLatLng = new google.maps.LatLng(d.lat, d.lon);
+            data.push(myLatLng);            
+          });
+
+          var pointArray = new google.maps.MVCArray(data);
+          var nextHeatMap = new google.maps.visualization.HeatmapLayer({
+            data: pointArray,
+            // gradient: ["rgba(0, 255, 255, 0)","#feb24c","#fd8d3c","#fc4e2a","#e31a1c"],
+            radius: 15
+          });
+
+          nextHeatMap.setMap(map);
+          setTimeout(function() {
+            currentHeatMap.setMap(null);
+          }, 800);
+          
+          setTimeout(function() {
+
+            if (endIndex < 1440) {
+              animLoop(nextHeatMap);
+            }
+          }, 750);      
+        }
+
+        setTimeout(function() {animLoop(heatmap);}, 1000);
+        
+      });
     }
 
     google.maps.event.addDomListener(window, 'load', initialize);
 
     </script>
-  </head>
-  <body>
-    <div id="map-canvas"></div>
   </body>
 </html>
